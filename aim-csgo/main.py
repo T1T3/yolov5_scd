@@ -3,6 +3,7 @@
 # @Author : 217703 ZHANG WENXUAN
 # @File : main.py
 # @Software : PyCharm
+import pynput.mouse
 import win32con
 import win32gui
 import numpy as np
@@ -12,6 +13,20 @@ from cs_model import load_model
 from grabscreen import grab_screen
 from utils.general import non_max_suppression, scale_coords, xyxy2xywh
 from utils.augmentations import letterbox
+from mouse_control import lock
+
+# names = ['person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck', 'boat', 'traffic light',
+#          'fire hydrant', 'stop sign', 'parking meter', 'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow',
+#          'elephant', 'bear', 'zebra', 'giraffe', 'backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee',
+#          'skis', 'snowboard', 'sports ball', 'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard',
+#          'tennis racket', 'bottle', 'wine glass', 'cup', 'fork', 'knife', 'spoon', 'bowl', 'banana', 'apple',
+#          'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake', 'chair', 'couch',
+#          'potted plant', 'bed', 'dining table', 'toilet', 'tv', 'laptop', 'mouse', 'remote', 'keyboard', 'cell phone',
+#          'microwave', 'oven', 'toaster', 'sink', 'refrigerator', 'book', 'clock', 'vase', 'scissors', 'teddy bear',
+#          'hair drier', 'toothbrush']
+
+# names = ['Apple', 'Apricot', 'Avocado', 'Banana', 'Beetroot', 'Blueberry', 'Cactus', 'Cantaloupe', 'Carambula', 'Cauliflower', 'Cherry', 'Chestnut', 'Clementine', 'Cocos', 'Dates', 'Eggplant', 'Ginger', 'Granadilla', 'Grape', 'Grapefruit', 'Guava', 'Hazelnut', 'Huckleberry', 'Kaki', 'Kiwi', 'Kohlrabi', 'Kumquats', 'Lemon', 'Limes', 'Lychee', 'Mandarine', 'Mango', 'Mangostan', 'Maracuja', 'Melon', 'Mulberry', 'Nectarine', 'Nut', 'Onion', 'Orange', 'Papaya', 'Passion', 'Peach', 'Pear', 'Pepino', 'Pepper', 'Physalis', 'Pineapple', 'Pitahaya', 'Plum', 'Pomegranate', 'Pomelo', 'Potato', 'Quince', 'Rambutan', 'Raspberry', 'Redcurrant', 'Salak', 'Strawberry', 'Tamarillo', 'Tangelo', 'Tomato', 'Walnut', 'Watermelon']
+
 
 # detect.py   VVVV
 
@@ -28,6 +43,8 @@ re_x, re_y = (2560, 1440)  # スクリーンのサイズ
 model = load_model()
 stride = int(model.stride.max())  # model stride
 names = model.module.names if hasattr(model, 'module') else model.names  # get class names
+
+mouse = pynput.mouse.Controller()
 
 while True:
     img0 = grab_screen(region=(0, 0, x, y))  # 左上の角から右下の角
@@ -87,9 +104,11 @@ while True:
                 # print(aim)
                 aims.append(aim)
 
-        if len(aims):
+        if len(aims):  # bbox list
+            lock(aims, mouse, x, y)  # mouse cotrol
+
             for i, det in enumerate(aims):
-                _, x_center, y_center, width, height = det  # 種類番号いらない X
+                num, x_center, y_center, width, height = det  # 種類番号いらない X
 
                 # 　バウンディングボックスを縮小する
                 #  元のパラメータがstr型  -->  float
@@ -97,14 +116,19 @@ while True:
                 y_center = re_y * float(y_center)
                 width = re_x * float(width)
                 height = re_y * float(height)
+                # label = names[int(num)]
 
                 # 必ずint型
                 top_left = (int(x_center - width / 2.0), int(y_center - height / 2.0))
                 bottom_right = (int(x_center + width / 2.0), int(y_center + height / 2.0))
+                top_left_font = (int(x_center - width / 2.0 + 30), int(y_center - height / 2.0 + 30))
 
-                color = (0, 255, 0) # RGB
+                color = (0, 255, 0)  # RGB
                 cv2.rectangle(img0, top_left, bottom_right, color, thickness=3)  # パラメータ必ずint型  線のサイズ=3   1/3
 
+                font = cv2.FONT_HERSHEY_SIMPLEX
+                cv2.putText(img0, '%s' % (names[int(num)]), top_left_font, font, 1, (255, 0, 255), 4)
+                # 'num:%s' % (num)
     cv2.namedWindow('detect', cv2.WINDOW_NORMAL)
     cv2.resizeWindow('detect', re_x // 3, re_y // 3)  # ウィンドウのサイズ 1/3
     cv2.imshow('detect', img0)
